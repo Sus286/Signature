@@ -1,0 +1,149 @@
+# Controllare se la stringa "cercata" è presente in ogni riga della colonna "colonna_da_controllare"
+presenza_AF <- grepl("AF", out_brca_fr_filtro_id_vep$V14)
+
+presenza_CLINSIG<-grepl("CLIN_SIG",out_brca_fr_filtro_id_vep$V14)
+
+# Stampare il vettore che indica la presenza della stringa
+#print(presenza_AF)
+
+out_brca_fr_filtro_id_vep_clinsig_af<-out_brca_fr_filtro_id_vep
+
+soglia<-out_brca_fr_filtro_id_vep_clinsig_af[,14]
+
+# Divisione della colonna in base al punto e virgola
+soglia_divise <- strsplit(as.character(soglia), ";")
+
+# Calcola il massimo numero di colonne dopo la divisione
+max_colonne <- max(sapply(soglia_divise, length))
+
+# Crea un nuovo dataframe con le colonne divise
+dati_divisi_soglia <- data.frame(matrix(NA, nrow = nrow(out_brca_fr_filtro_id_vep_clinsig_af), ncol = max_colonne))
+
+# Assegna i valori alle nuove colonne
+for (i in 1:max_colonne) {
+  dati_divisi_soglia[, i] <- sapply(soglia_divise, function(x) ifelse(length(x) >= i, x[i], NA))
+}
+
+# Funzione per trovare la colonna con "AF" per ogni riga
+trova_colonna_AF <- function(row) {
+  colonna_con_AF <- grep("AF", row)
+  if (length(colonna_con_AF) > 0) {
+    return(colonna_con_AF)
+  } else {
+    return(NA)
+  }
+}
+# Funzione per trovare la colonna con "CLIN_SIG" per ogni riga
+trova_colonna_CLINSIG <- function(row) {
+  colonna_con_CLINSIG <- grep("CLIN_SIG", row)
+  if (length(colonna_con_CLINSIG) > 0) {
+    return(colonna_con_CLINSIG)
+  } else {
+    return(NA)
+  }
+}
+
+# Trova la colonna con "AF" per ogni riga
+colonne_con_AF <- apply(dati_divisi_soglia, 1, trova_colonna_AF)
+#Trova la colonna con "CLINSIG" per ogni riga 
+colonne_con_CLINSIG<- apply(dati_divisi_soglia, 1, trova_colonna_CLINSIG)
+
+# Crea un nuovo dataframe con solo la colonna con "AF" per ogni riga
+dati_selezionati_AF <- data.frame(
+  AF_colonna = sapply(1:nrow(dati_divisi_soglia), function(i) ifelse(!is.na(colonne_con_AF[i]), dati_divisi_soglia[i, colonne_con_AF[i]], NA))
+)
+# Crea un nuovo dataframe con solo la colonna con "CLINSIG" per ogni riga
+dati_selezionati_CLINSIG<- data.frame(
+  CLINSIG_colonna = sapply(1:nrow(dati_divisi_soglia), function(i) ifelse(!is.na(colonne_con_CLINSIG[i]), dati_divisi_soglia[i, colonne_con_CLINSIG[i]], NA))
+)
+
+parte_numerica_AF <- as.data.frame(as.numeric(gsub("[^0-9.]", "", dati_selezionati_AF$AF_colonna)))
+parte_numerica_CLINSIG <- sapply(dati_selezionati_CLINSIG, function(x) sub(".*=", "", x))
+
+out_brca_fr_SOGLIA<-cbind(out_brca_fr_filtro_id_vep_clinsig_af,parte_numerica_AF)
+out_brca_fr_completed<-cbind(out_brca_fr_SOGLIA,parte_numerica_CLINSIG)
+
+colnames(out_brca_fr_completed)[15]<-"AF"
+colnames(out_brca_fr_completed)[16]<-"CLINSIG"
+
+out_brca_fr_completed_filtro<-subset(out_brca_fr_completed,AF<0.05|is.na(AF))
+
+# Rimuovi le righe in cui colonna1 è "valore1" o "valore2" (ma mantieni gli NA)
+out_brca_fr_completed_filtro <- subset(out_brca_fr_completed_filtro, !(CLINSIG %in% c("likely_benign", "benign","benign,likely_benign","benign/likely_benign")) | is.na(CLINSIG))
+
+BRCA_FR_CUT_completed <- brca_fr_filtro_id[which(brca_fr_filtro_id$icgc_mutation_id.1 %in% unique(out_brca_fr_completed_filtro$V1)),]
+
+BRCA_FR_completed_inputmatrix<-BRCA_FR_CUT_completed[,c(3,5,43,13,14,9,10,11,15,17,18)]
+
+BRCA_FR_completed_sample_inputmatrix<-BRCA_FR_CUT_completed[,c(3,5,5,13,14,9,10,11,15,17,18)]
+
+BRCA_FR_completed_inputmatrix[,11]="SOMATIC"
+
+BRCA_FR_completed_inputmatrix[,5]="SNP"
+
+BRCA_FR_completed_sample_inputmatrix[,11]="SOMATIC"
+
+BRCA_FR_completed_sample_inputmatrix[,5]="SNP"
+
+colnames(BRCA_FR_completed_inputmatrix)[1]<-"Project"
+colnames(BRCA_FR_completed_inputmatrix)[2]<-"Sample"
+colnames(BRCA_FR_completed_inputmatrix)[3]<-"ID"
+colnames(BRCA_FR_completed_inputmatrix)[4]<-"Genome"
+colnames(BRCA_FR_completed_inputmatrix)[5]<-"mut_type"
+colnames(BRCA_FR_completed_inputmatrix)[6]<-"chrom"
+colnames(BRCA_FR_completed_inputmatrix)[7]<-"pos_start"
+colnames(BRCA_FR_completed_inputmatrix)[8]<-"pos_end"
+colnames(BRCA_FR_completed_inputmatrix)[9]<-"ref"
+colnames(BRCA_FR_completed_inputmatrix)[10]<-"alt"
+colnames(BRCA_FR_completed_inputmatrix)[11]<-"Type"
+
+colnames(BRCA_FR_completed_sample_inputmatrix)[1]<-"Project"
+colnames(BRCA_FR_completed_sample_inputmatrix)[2]<-"Sample"
+colnames(BRCA_FR_completed_sample_inputmatrix)[3]<-"ID"
+colnames(BRCA_FR_completed_sample_inputmatrix)[4]<-"Genome"
+colnames(BRCA_FR_completed_sample_inputmatrix)[5]<-"mut_type"
+colnames(BRCA_FR_completed_sample_inputmatrix)[6]<-"chrom"
+colnames(BRCA_FR_completed_sample_inputmatrix)[7]<-"pos_start"
+colnames(BRCA_FR_completed_sample_inputmatrix)[8]<-"pos_end"
+colnames(BRCA_FR_completed_sample_inputmatrix)[9]<-"ref"
+colnames(BRCA_FR_completed_sample_inputmatrix)[10]<-"alt"
+colnames(BRCA_FR_completed_sample_inputmatrix)[11]<-"Type"
+
+library(dplyr)
+
+# Estrai la parte prima del delimitatore "-" per ogni riga
+
+BRCA_FR_completed_inputmatrix_ID<-BRCA_FR_completed_inputmatrix
+BRCA_FR_completed_inputmatrix_ID$parte_prima <- sub("-.*", "", BRCA_FR_completed_inputmatrix$ID)
+colnames(BRCA_FR_completed_inputmatrix_ID)[12]<-"ID_ok"
+BRCA_FR_completed_inputmatrix_ID$ID<-BRCA_FR_completed_inputmatrix_ID$ID_ok
+# Supponiamo che il tuo dataframe sia chiamato "dati" e vuoi rimuovere la colonna "colonna_da_rimuovere"
+BRCA_FR_completed_inputmatrix_ID<- subset(BRCA_FR_completed_inputmatrix_ID, select = -12)
+
+# Imposta il percorso e il nome del file di output
+file_path <- "C:/Users/susan/OneDrive/Desktop/Tesi/BRCA_FR_AF05_CLINSIG_NA_FILTRO_inputmatrix.txt"
+
+# Trasforma il dataframe in un vettore di righe di testo
+lines <- apply(BRCA_FR_completed_inputmatrix, 1, paste, collapse = "\t")
+
+# Scrivi le righe di testo nel file di testo utilizzando cat()
+cat(c(paste(names(BRCA_FR_completed_inputmatrix), collapse = "\t"), lines), file = file_path, sep = "\n")
+
+# Imposta il percorso e il nome del file di output
+file_path <- "C:/Users/susan/OneDrive/Desktop/Tesi/BRCA_FR_AF05_CLINSIG_NA_FILTRO_sample_inputmatrix.txt"
+
+# Trasforma il dataframe in un vettore di righe di testo
+lines <- apply(BRCA_FR_completed_sample_inputmatrix, 1, paste, collapse = "\t")
+
+# Scrivi le righe di testo nel file di testo utilizzando cat()
+cat(c(paste(names(BRCA_FR_completed_sample_inputmatrix), collapse = "\t"), lines), file = file_path, sep = "\n")
+
+# Imposta il percorso e il nome del file di output
+file_path <- "C:/Users/susan/OneDrive/Desktop/Tesi/BRCA_FR_AF05_CLINSIG_NA_FILTRO_ID_inputmatrix.txt"
+
+# Trasforma il dataframe in un vettore di righe di testo
+lines <- apply(BRCA_FR_completed_inputmatrix_ID, 1, paste, collapse = "\t")
+
+# Scrivi le righe di testo nel file di testo utilizzando cat()
+cat(c(paste(names(BRCA_FR_completed_inputmatrix_ID), collapse = "\t"), lines), file = file_path, sep = "\n")
+
